@@ -1,7 +1,7 @@
 import "./globals.css";
 
 export const metadata = {
-  title: "Painel de Leads",
+  title: "Painel de Leads – Patrícia Toledo",
   description: "CRM Kanban de leads imobiliários, alimentado pela planilha de Ads.",
 };
 
