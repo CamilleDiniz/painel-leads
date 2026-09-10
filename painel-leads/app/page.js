@@ -44,6 +44,7 @@ export default function PainelPage() {
   const [fetchedAt, setFetchedAt] = useState(null);
   const [error, setError] = useState(null);
   const [savingId, setSavingId] = useState(null);
+  const [mobileStage, setMobileStage] = useState("novo");
 
   const load = useCallback(async () => {
     try {
@@ -127,8 +128,7 @@ export default function PainelPage() {
         <div className="brand">
           <div className="mark">D</div>
           <div>
-            <h1>Painel de Leads</h1>
-            <div className="tagline">alimentado pela planilha de Ads &middot; leitura automática</div>
+            <h1>Painel de Leads &ndash; Patrícia Toledo</h1>
           </div>
         </div>
         <div className="topbar-right">
@@ -203,6 +203,35 @@ export default function PainelPage() {
                 </div>
               );
             })}
+          </div>
+
+          <div className="mobile-stage-picker">
+            <select value={mobileStage} onChange={(e) => setMobileStage(e.target.value)}>
+              {COLUMNS.map((col) => (
+                <option key={col.key} value={col.key}>
+                  {col.title} &middot; {counts[col.key]}
+                </option>
+              ))}
+            </select>
+            <span className={`status-dot dot-${mobileStage}`}></span>
+          </div>
+          <div className="mobile-cards">
+            {activeLeads.filter((l) => l.status === mobileStage).length === 0 && (
+              <div className="col-empty">Nenhum lead nessa etapa.</div>
+            )}
+            {activeLeads
+              .filter((l) => l.status === mobileStage)
+              .map((lead) => (
+                <LeadCard
+                  key={lead.id}
+                  lead={lead}
+                  saving={savingId === lead.id}
+                  onMove={(status) => patchCard(lead.id, { status })}
+                  onToggleFup={(n) => toggleFup(lead, n)}
+                  onSummaryChange={(summary) => patchCard(lead.id, { summary })}
+                  onMarkLost={() => markLost(lead)}
+                />
+              ))}
           </div>
         </section>
       )}
