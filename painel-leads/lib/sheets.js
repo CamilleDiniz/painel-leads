@@ -8,13 +8,29 @@ const SHEET_ID = process.env.LEADS_SHEET_ID;
 const SHEET_RANGE = process.env.LEADS_SHEET_RANGE || "A:R"; // colunas id..enviado
 
 function getAuth() {
-  const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
-  // A chave privada normalmente vem com \n escapados nas env vars da Vercel.
-  const key = (process.env.GOOGLE_PRIVATE_KEY || "").replace(/\\n/g, "\n");
+  let email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
+  let key = process.env.GOOGLE_PRIVATE_KEY;
+
+  // Opção mais simples e menos sujeita a erro de copiar/colar: colar o
+  // arquivo .json da conta de serviço INTEIRO numa única variável.
+  if (process.env.GOOGLE_SERVICE_ACCOUNT_JSON) {
+    try {
+      const parsed = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON);
+      email = parsed.client_email;
+      key = parsed.private_key;
+    } catch {
+      throw new Error(
+        "GOOGLE_SERVICE_ACCOUNT_JSON não é um JSON válido — confira se colou o arquivo inteiro."
+      );
+    }
+  } else if (key) {
+    // Quando a chave vem separada, os \n normalmente chegam escapados.
+    key = key.replace(/\\n/g, "\n");
+  }
 
   if (!email || !key) {
     throw new Error(
-      "Faltam as variáveis GOOGLE_SERVICE_ACCOUNT_EMAIL / GOOGLE_PRIVATE_KEY."
+      "Faltam as credenciais do Google: configure GOOGLE_SERVICE_ACCOUNT_JSON (recomendado) ou GOOGLE_SERVICE_ACCOUNT_EMAIL + GOOGLE_PRIVATE_KEY."
     );
   }
 
