@@ -7,6 +7,7 @@
 import { createHash } from "node:crypto";
 import { google } from "googleapis";
 import { getAuth } from "./sheets.js";
+import { normalizePhone } from "./phone.js";
 
 const DEFAULT_SHEET_ID = "1AATyI2Wf85RXSOYNhZfIMNag-u9w3NRxbV9enDgHpNk";
 
@@ -47,25 +48,96 @@ export function parseBRDateTime(raw) {
 }
 
 /**
- * A planilha não tem coluna de ID, então geramos um ID estável a partir do
- * conteúdo da linha (data/hora + telefone + origem + imóvel). Assim o estado
- * do Kanban (coluna, FUP, resumo) continua preso ao lead certo mesmo se
- * linhas forem inseridas/reordenadas. O nome fica de fora de propósito:
- * corrigir a grafia do nome na planilha não "perde" o card.
- * Linhas 100% repetidas (clique duplo no botão do site) viram um único lead.
+ * A planilha não tem coluna de ID, e a mesma pessoa costuma clicar várias
+ * vezes nos botões do site. Por isso agrupamos por PESSOA: o ID do card é
+ * gerado a partir do telefone normalizado (ex: "19 99887-7665" e
+ * "+55 19 99887-7665" viram a mesma pessoa). Sem telefone, usa o nome.
+ * Assim o estado do Kanban (coluna, FUP, resumo) fica preso à pessoa, mesmo
+ * que ela entre em contato de novo ou linhas sejam reordenadas.
  */
+export function googlePersonKey(r) {
+  const phone = normalizePhone(r.telefone);
+  if (phone.valid) return `tel:${phone.e164}`;
+  const digits = String(r.telefone || "").replace(/\D/g, "");
+  if (digits) return `tel:${digits}`;
+  return `nome:${String(r.nome || "").trim().toLowerCase().replace(/\s+/g, " ")}`;
+}
+
 export function googleLeadId(r) {
-  const key = [
-    r.dataHora,
-    String(r.telefone || "").replace(/\D/g, ""),
-    r.origem,
-    r.imovel,
-    r.valor,
-    r.condominio,
-  ]
-    .map((v) => String(v || "").trim().toLowerCase())
-    .join("|");
-  return "g_" + createHash("sha1").update(key).digest("hex").slice(0, 16);
+  return "g_" + createHash("sha1").update(googlePersonKey(r)).digest("hex").slice(0, 16);
+}
+
+function uniq(list) {
+  const seen = new Set();
+  return list.filter((v) => {
+    const k = String(v || "").trim().toLowerCase();
+    if (!k || seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+}
+
+// Nome mais completo entre os contatos (ex: "Valdecir" x "valdecir"),
+// preferindo o que tem mais palavras/letras e com iniciais maiúsculas.
+function bestName(names) {
+  return (
+    [...names]
+      .filter(Boolean)
+      .sort((a, b) => {
+        const wa = a.split(/\s+/).length, wb = b.split(/\s+/).length;
+        if (wb !== wa) return wb - wa;
+        if (b.length !== a.length) return b.length - a.length;
+        return (/^[A-ZÀ-Ý]/.test(b) ? 1 : 0) - (/^[A-ZÀ-Ý]/.test(a) ? 1 : 0);
+      })[0] || ""
+  );
+}
+
+/**
+ * Junta as linhas da mesma pessoa num único lead.
+ * - createdTime: contato MAIS RECENTE (quem voltou a chamar sobe no painel)
+ * - firstContact: primeiro contato
+ * - contacts: quantas vezes ela entrou em contato (linhas repetidas idênticas contam 1)
+ * - entries: os contatos distintos (imóvel/origem/mensagem), do mais recente ao mais antigo
+ */
+export function groupGoogleRows(rows) {
+  const groups = new Map();
+
+  for (const r of rows) {
+    const id = googleLeadId(r);
+    if (!groups.has(id)) groups.set(id, { id, rows: [] });
+    groups.get(id).rows.push(r);
+  }
+
+  const toTime = (v) => {
+    const t = Date.parse(v);
+    return Number.isNaN(t) ? 0 : t;
+  };
+
+  return [...groups.values()].map(({ id, rows: rs }) => {
+    const sorted = [...rs].sort((a, b) => toTime(b.createdTime) - toTime(a.createdTime));
+
+    // contatos distintos (mesma data/hora + mesmo conteúdo = clique duplo)
+    const seenContact = new Set();
+    const entries = sorted.filter((r) => {
+      const k = [r.dataHora, r.origem, r.imovel, r.valor, r.condominio, r.mensagem]
+        .map((v) => String(v || "").trim().toLowerCase())
+        .join("|");
+      if (seenContact.has(k)) return false;
+      seenContact.add(k);
+      return true;
+    });
+
+    return {
+      id,
+      nome: bestName(sorted.map((r) => r.nome)),
+      telefone: sorted.find((r) => r.telefone)?.telefone || "",
+      createdTime: sorted[0].createdTime,
+      firstContact: sorted[sorted.length - 1].createdTime,
+      contacts: entries.length,
+      origens: uniq(entries.map((r) => r.origem)),
+      entries,
+    };
+  });
 }
 
 function isTestLead(nome) {
@@ -73,8 +145,8 @@ function isTestLead(nome) {
 }
 
 /**
- * Busca todas as linhas da planilha do Google e devolve como array de
- * objetos com nomes de campo amigáveis + `id` gerado + `createdTime` em ISO.
+ * Busca todas as linhas da planilha do Google e devolve UM lead por pessoa
+ * (agrupado pelo telefone), com todos os contatos dela em `entries`.
  */
 export async function fetchGoogleLeadsFromSheet() {
   const auth = getAuth();
@@ -89,7 +161,6 @@ export async function fetchGoogleLeadsFromSheet() {
   if (rows.length < 2) return [];
 
   const header = rows[0].map(normalizeHeaderKey);
-  const seen = new Set();
   const out = [];
 
   for (const row of rows.slice(1)) {
@@ -102,12 +173,9 @@ export async function fetchGoogleLeadsFromSheet() {
     if (!r.nome && !r.telefone) continue; // linha vazia
     if (isTestLead(r.nome)) continue; // ex: "Teste Lovable"
 
-    const id = googleLeadId(r);
-    if (seen.has(id)) continue; // linha duplicada
-    seen.add(id);
-
-    out.push({ ...r, id, createdTime: parseBRDateTime(r.dataHora) });
+    out.push({ ...r, createdTime: parseBRDateTime(r.dataHora) });
   }
 
-  return out;
+  // um lead por pessoa (telefone)
+  return groupGoogleRows(out);
 }

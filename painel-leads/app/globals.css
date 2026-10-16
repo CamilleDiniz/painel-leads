@@ -143,6 +143,7 @@ nav.tabs button.active .count { color: var(--accent-ink); background: var(--acce
 .card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
 .card-name { font-weight: 600; font-size: 14.5px; }
 .card-source { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-faint); margin-top: 2px; }
+.property-list { display: flex; flex-direction: column; gap: 2px; }
 .card-tags { display: flex; gap: 4px; flex-shrink: 0; }
 .tag { font-size: 10.5px; font-weight: 600; line-height: 1; padding: 4px 7px; border-radius: 999px; border: 1px solid var(--border); color: var(--text-muted); background: var(--surface-2); white-space: nowrap; }
 .tag-google { color: #1a5fd1; background: #e8f0fe; border-color: #c6d9fb; }

@@ -34,20 +34,33 @@ function mapMetaLead(r) {
   };
 }
 
-function mapGoogleLead(r) {
-  const property = extractGoogleProperty(r);
+// Um card por pessoa: junta os imóveis de interesse de todos os contatos.
+// Rótulos genéricos ("Interesse geral…") só aparecem se não houver nenhum
+// imóvel específico.
+function mapGoogleLead(p) {
+  const labels = [];
+  for (const e of p.entries) {
+    const { label } = extractGoogleProperty(e);
+    if (!labels.some((l) => l.toLowerCase() === label.toLowerCase())) labels.push(label);
+  }
+  const specific = labels.filter((l) => !l.startsWith("Interesse geral"));
+  const properties = specific.length ? specific : labels.slice(0, 1);
+
   return {
-    id: r.id,
+    id: p.id,
     origin: "google",
     tags: ["Google"],
-    name: r.nome,
-    phone: normalizePhone(r.telefone),
-    property: property.label,
-    propertyUncertain: property.uncertain,
-    source: r.origem ? `Site · ${r.origem}` : "Site",
+    name: p.nome,
+    phone: normalizePhone(p.telefone),
+    property: properties.join(" | ") || "Interesse geral (site)",
+    properties,
+    propertyUncertain: false,
+    source: p.origens.length ? `Site · ${p.origens.join(" + ")}` : "Site",
     formAnswers: { porOnde: "", prazo: "" },
-    message: r.mensagem || "",
-    createdAt: r.createdTime,
+    message: p.entries[0]?.mensagem || "",
+    contacts: p.contacts,
+    firstContactAt: p.firstContact,
+    createdAt: p.createdTime,
   };
 }
 

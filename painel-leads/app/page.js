@@ -368,11 +368,20 @@ function LeadCard({ lead, saving, onMove, onToggleFup, onSummaryChange, onMarkLo
       <div className="card-meta">
         <div className="meta-row">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M3 9.5 12 3l9 6.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1V9.5Z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" /></svg>
-          <span className={`val ${lead.propertyUncertain ? "warn" : ""}`}>{lead.property}</span>
+          {(lead.properties || []).length > 1 ? (
+            <span className="val property-list">
+              {lead.properties.map((p) => <span key={p}>{p}</span>)}
+            </span>
+          ) : (
+            <span className={`val ${lead.propertyUncertain ? "warn" : ""}`}>{lead.property}</span>
+          )}
         </div>
         <div className="meta-row">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M7 3v3M17 3v3M3.5 9h17M5 5h14a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Z" stroke="currentColor" strokeWidth="1.6" /></svg>
-          <span className="date">Contato: {formatDate(lead.createdAt)}</span>
+          <span className="date">
+            {lead.contacts > 1 ? "Último contato" : "Contato"}: {formatDate(lead.createdAt)}
+            {lead.contacts > 1 && <> · {lead.contacts} contatos (desde {formatDate(lead.firstContactAt)})</>}
+          </span>
         </div>
         {(lead.formAnswers.porOnde || lead.formAnswers.prazo) && (
           <div className="meta-row">

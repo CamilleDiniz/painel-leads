@@ -35,9 +35,10 @@ Eles aparecem no painel com a tag **Google**.
 - Variáveis opcionais (já têm valor padrão):
   - `GOOGLE_LEADS_SHEET_ID` — padrão `1AATyI2Wf85RXSOYNhZfIMNag-u9w3NRxbV9enDgHpNk`
   - `GOOGLE_LEADS_SHEET_RANGE` — padrão `Leads!A:H`
-- Como essa planilha não tem coluna de ID, o painel gera um ID a partir de
-  data/hora + telefone + origem + imóvel. Linhas idênticas repetidas viram um
-  lead só; linhas de teste (nome começando com "Teste") são ignoradas.
+- Como essa planilha não tem coluna de ID, o painel agrupa por **pessoa**
+  (telefone normalizado): todos os contatos da mesma pessoa viram **um único
+  card**, com os imóveis de interesse dela, as origens, o número de contatos e
+  a data do último contato. Linhas de teste (nome começando com "Teste") são ignoradas.
 - Se uma das duas planilhas falhar, a outra continua aparecendo e o painel mostra um aviso.
 
 ### 2. Banco de estado do Kanban (Upstash Redis)

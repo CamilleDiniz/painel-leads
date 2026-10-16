@@ -43,3 +43,22 @@ for (const d of ["25/03/2026, 14:02", "01/06/2026, 16:00", "texto estranho"]) {
 const a = { dataHora: "14/04/2026, 08:13", telefone: "19993054393", origem: "Sobre a Corretora" };
 console.log("linha repetida gera mesmo id:", googleLeadId(a) === googleLeadId({ ...a, nome: "outro" }));
 console.log("+55 19 98330-8903 ->", JSON.stringify(normalizePhone("+55 19 98330-8903")));
+
+console.log("\n--- groupGoogleRows (um card por pessoa) ---");
+import { groupGoogleRows } from "../lib/sheetsGoogle.js";
+const rows = [
+  ["09/05/2026, 17:52", "Valdecir", "14998331780", "Página Inicial - Hero", "", "", "", "casas em condomínio"],
+  ["24/05/2026, 10:53", "valdecir", "14998331780", "Botão Flutuante WhatsApp", "", "", "", "casas em condomínio"],
+  ["28/05/2026, 14:42", "valdecir", "14998331780", "Página Inicial - Hero", "", "", "", "casas em condomínio"],
+  ["06/07/2026, 20:19", "Aline", "19992278001", "Casa", "Lotes Residenciais", "Residencial Mont Blanc", "", "x"],
+  ["06/07/2026, 20:19", "Aline", "19992278001", "Casa", "Lotes Residenciais", "Residencial Mont Blanc", "", "x"],
+  ["06/07/2026, 20:19", "Aline", "19992278001", "Casa", "Lotes Residenciais", "Terrassos Residencial", "", "x"],
+  ["18/05/2026, 11:07", "Camila Oliveira da Silveira Braga", "19992548873", "Casa", "Casa Térrea Alto Padrão", "R$ 1.218.000", "", "x"],
+  ["01/07/2026, 13:19", "Camila Oliveira da Silveira Braga", "19992548873", "Botão Flutuante WhatsApp", "", "", "", "Olá Patrícia, gostaria de saber mais sobre casas em condomínio em Paulínia!"],
+].map(([dataHora, nome, telefone, origem, imovel, valor, condominio, mensagem]) => ({
+  dataHora, nome, telefone, origem, imovel, valor, condominio, mensagem, createdTime: parseBRDateTime(dataHora),
+}));
+for (const g of groupGoogleRows(rows)) {
+  console.log(g.nome, "|", g.contacts, "contatos |", g.origens.join(" + "), "|", g.firstContact, "->", g.createdTime,
+    "|", [...new Set(g.entries.map((e) => extractGoogleProperty(e).label))].join(" | "));
+}
