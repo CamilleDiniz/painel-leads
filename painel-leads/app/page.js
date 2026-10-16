@@ -31,6 +31,12 @@ function timeAgo(iso) {
   return `há ${Math.round(h / 24)} d`;
 }
 
+const PLATFORM_FILTERS = [
+  { key: "todas", label: "Todas" },
+  { key: "google", label: "Google Ads" },
+  { key: "meta", label: "Meta Ads" },
+];
+
 function formatDate(iso) {
   if (!iso) return "—";
   const d = new Date(iso);
@@ -46,6 +52,19 @@ export default function PainelPage() {
   const [warnings, setWarnings] = useState([]);
   const [savingId, setSavingId] = useState(null);
   const [mobileStage, setMobileStage] = useState("novo");
+  const [platform, setPlatform] = useState("todas"); // todas | google | meta
+
+  // lembra o último filtro escolhido neste navegador
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("painel_platform");
+      if (saved && PLATFORM_FILTERS.some((f) => f.key === saved)) setPlatform(saved);
+    } catch {}
+  }, []);
+  function choosePlatform(key) {
+    setPlatform(key);
+    try { localStorage.setItem("painel_platform", key); } catch {}
+  }
 
   const load = useCallback(async () => {
     try {
@@ -95,13 +114,28 @@ export default function PainelPage() {
     patchCard(lead.id, { status: "perdido", lostReason: reason });
   }
 
+  // filtro por plataforma (tag): vale para Kanban, Perdidos e Funil
+  const platformCounts = useMemo(() => {
+    const c = { todas: 0, google: 0, meta: 0 };
+    (leads || []).forEach((l) => {
+      c.todas += 1;
+      if (c[l.origin] !== undefined) c[l.origin] += 1;
+    });
+    return c;
+  }, [leads]);
+
+  const filteredLeads = useMemo(
+    () => (leads || []).filter((l) => platform === "todas" || l.origin === platform),
+    [leads, platform]
+  );
+
   const activeLeads = useMemo(
-    () => (leads || []).filter((l) => l.status !== "perdido"),
-    [leads]
+    () => filteredLeads.filter((l) => l.status !== "perdido"),
+    [filteredLeads]
   );
   const lostLeads = useMemo(
-    () => (leads || []).filter((l) => l.status === "perdido"),
-    [leads]
+    () => filteredLeads.filter((l) => l.status === "perdido"),
+    [filteredLeads]
   );
 
   const counts = useMemo(() => {
@@ -113,7 +147,7 @@ export default function PainelPage() {
   }, [activeLeads]);
 
   const funnel = useMemo(() => {
-    const total = leads ? leads.length : 0;
+    const total = filteredLeads.length;
     const iniciadas = activeLeads.length + lostLeads.length; // toda planilha = conversa iniciada
     return {
       total,
@@ -122,7 +156,7 @@ export default function PainelPage() {
       acompanhamento: counts.acompanhamento,
       perdidos: lostLeads.length,
     };
-  }, [leads, activeLeads, lostLeads, counts]);
+  }, [filteredLeads, activeLeads, lostLeads, counts]);
 
   return (
     <div className="app">
@@ -159,6 +193,20 @@ export default function PainelPage() {
           </div>
         </div>
       )}
+
+      <div className="platform-filter" role="group" aria-label="Filtrar por plataforma">
+        <span className="platform-filter-label">Plataforma</span>
+        {PLATFORM_FILTERS.map((f) => (
+          <button
+            key={f.key}
+            className={`platform-chip chip-${f.key} ${platform === f.key ? "active" : ""}`}
+            aria-pressed={platform === f.key}
+            onClick={() => choosePlatform(f.key)}
+          >
+            {f.label} <span className="count">{platformCounts[f.key]}</span>
+          </button>
+        ))}
+      </div>
 
       <nav className="tabs">
         <button className={tab === "kanban" ? "active" : ""} onClick={() => setTab("kanban")}>
@@ -349,7 +397,7 @@ function LeadCard({ lead, saving, onMove, onToggleFup, onSummaryChange, onMarkLo
         {(lead.tags || []).length > 0 && (
           <div className="card-tags">
             {lead.tags.map((t) => (
-              <span key={t} className={`tag tag-${t.toLowerCase()}`}>{t}</span>
+              <span key={t} className={`tag tag-${lead.origin}`}>{t}</span>
             ))}
           </div>
         )}

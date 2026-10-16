@@ -5,8 +5,13 @@ const COOKIE_NAME = "painel_auth";
 export function proxy(req) {
   const { pathname } = req.nextUrl;
 
-  // libera a própria página de login e a rota que valida a senha
-  if (pathname.startsWith("/login") || pathname.startsWith("/api/login")) {
+  // libera a página de login, a rota que valida a senha e o aviso de lead
+  // novo (/api/notify), que tem o próprio código secreto (NOTIFY_SECRET)
+  if (
+    pathname.startsWith("/login") ||
+    pathname.startsWith("/api/login") ||
+    pathname === "/api/notify"
+  ) {
     return NextResponse.next();
   }
 

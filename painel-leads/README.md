@@ -41,6 +41,31 @@ Eles aparecem no painel com a tag **Google**.
   a data do último contato. Linhas de teste (nome começando com "Teste") são ignoradas.
 - Se uma das duas planilhas falhar, a outra continua aparecendo e o painel mostra um aviso.
 
+### 1c. Aviso por e-mail de lead novo (gratuito)
+
+A cada lead que chega (Meta ou Google), um e-mail é enviado — **mesmo que a
+pessoa já tenha se cadastrado antes** (no painel ela continua sendo um card só).
+Cliques duplos no mesmo minuto contam como um contato.
+
+1. **Senha de app do Gmail** (na conta que vai ENVIAR): ative a verificação em
+   duas etapas em myaccount.google.com → Segurança, depois acesse
+   myaccount.google.com/apppasswords, crie uma senha com o nome "Painel de Leads"
+   e copie as 16 letras.
+2. **Variáveis na Vercel** (Settings → Environment Variables):
+   - `GMAIL_USER` — e-mail que envia
+   - `GMAIL_APP_PASSWORD` — a senha de app de 16 letras
+   - `ALERT_EMAIL_TO` — quem recebe (vários separados por vírgula)
+   - `NOTIFY_SECRET` — um código secreto qualquer, longo (ex: gerado em um gerador de senhas)
+   - `PANEL_URL` (opcional) — endereço do painel, usado no botão "Abrir o painel"
+   Depois, faça um "Redeploy" pra Vercel pegar as variáveis novas.
+3. **Despertador gratuito** em cron-job.org: crie um "cronjob" chamando
+   `https://SEU-PAINEL.vercel.app/api/notify?key=SEU_NOTIFY_SECRET`
+   a cada 5 minutos.
+
+Na primeira chamada, os leads que já existem são só registrados (sem e-mail),
+pra não disparar avisos antigos. A partir daí, cada lead novo gera um e-mail
+em até ~5 minutos. A rota responde um resumo (`sent`, `failed`, `seeded`).
+
 ### 2. Banco de estado do Kanban (Upstash Redis)
 
 1. No painel do seu projeto na Vercel, vá em "Storage" → "Marketplace Database Storage" → escolha **Upstash Redis** (tem plano gratuito).
@@ -83,7 +108,10 @@ npm run dev     # sobe em http://localhost:3000
 - `lib/property.js` — identifica o empreendimento a partir do nome do anúncio (`ad_name`).
 - `lib/phone.js` — normaliza o número de WhatsApp pra gerar o link `wa.me`.
 - `lib/store.js` — guarda o estado do Kanban (coluna, tentativas, resumo, motivo de perda) no Upstash Redis — nunca na planilha.
-- `app/api/leads` — junta os leads da planilha com o estado salvo.
+- `lib/leads.js` — monta a lista de leads das duas planilhas (Meta + Google), com a tag de plataforma.
+- `lib/notify.js` — monta e envia o e-mail de lead novo (Gmail) e controla o que já foi avisado.
+- `app/api/leads` — junta os leads das planilhas com o estado salvo.
+- `app/api/notify` — chamada pelo cron-job.org a cada 5 min para enviar os avisos.
 - `app/api/card` — grava a movimentação/anotação de um card (não escreve na planilha).
 - `app/page.js` — a interface do painel (Kanban, Perdidos, Funil, Configurações).
 - `proxy.js` — protege todas as páginas com a senha compartilhada.
