@@ -17,3 +17,39 @@ export function extractProperty(adName, campaignName) {
 
   return { label: raw, uncertain: false };
 }
+
+// ---------------------------------------------------------------------------
+// Leads do Google (planilha do site): o imóvel vem em colunas separadas
+// (Imóvel, Valor, Condomínio). Montamos um rótulo legível, ex:
+//   "Casa Térrea Alto Padrão · Terras da Estância · R$ 1.190.000"
+// Particularidade da planilha: em "Lotes Residenciais" o nome do
+// empreendimento vem na coluna Valor (ex: "Residencial Mont Blanc"), então
+// só tratamos Valor como preço quando começa com "R$".
+// Quando o lead veio de um botão genérico do site (sem imóvel), usamos a
+// mensagem pra dizer o que a pessoa procura.
+
+export function extractGoogleProperty({ imovel, valor, condominio, mensagem } = {}) {
+  const tipo = (imovel || "").trim();
+  const valorTxt = (valor || "").trim();
+  const isPrice = /^r\$/i.test(valorTxt);
+  const empreendimento = (condominio || "").trim() || (!isPrice ? valorTxt : "");
+  const preco = isPrice ? valorTxt : "";
+
+  if (tipo || empreendimento) {
+    const label = [tipo, empreendimento, preco].filter(Boolean).join(" · ");
+    return { label, uncertain: false };
+  }
+
+  const msg = (mensagem || "").trim();
+  if (/permuta/i.test(msg)) {
+    return { label: "Avaliação de permuta", uncertain: false };
+  }
+  const noLocal = msg.match(/interesse em casas no ([^!.]+?) em Paul[ií]nia/i);
+  if (noLocal) {
+    return { label: `Casas no ${noLocal[1].trim()}`, uncertain: false };
+  }
+  if (/condom[ií]nio/i.test(msg)) {
+    return { label: "Interesse geral · casas em condomínio", uncertain: false };
+  }
+  return { label: "Interesse geral (site)", uncertain: false };
+}

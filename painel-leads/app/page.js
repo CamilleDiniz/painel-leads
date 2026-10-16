@@ -43,6 +43,7 @@ export default function PainelPage() {
   const [leads, setLeads] = useState(null);
   const [fetchedAt, setFetchedAt] = useState(null);
   const [error, setError] = useState(null);
+  const [warnings, setWarnings] = useState([]);
   const [savingId, setSavingId] = useState(null);
   const [mobileStage, setMobileStage] = useState("novo");
 
@@ -53,6 +54,7 @@ export default function PainelPage() {
       if (!res.ok) throw new Error(data.error || "Falha ao carregar leads.");
       setLeads(data.leads);
       setFetchedAt(data.fetchedAt);
+      setWarnings(data.warnings || []);
       setError(null);
     } catch (err) {
       setError(err.message);
@@ -139,6 +141,15 @@ export default function PainelPage() {
           </div>
         </div>
       </header>
+
+      {!error && warnings.length > 0 && (
+        <div className="notice">
+          <span>&#9888;</span>
+          <div>
+            <b>Uma das planilhas não pôde ser lida agora.</b> {warnings.join(" · ")} — os leads da outra planilha continuam aparecendo normalmente.
+          </div>
+        </div>
+      )}
 
       {error && (
         <div className="notice">
@@ -335,6 +346,13 @@ function LeadCard({ lead, saving, onMove, onToggleFup, onSummaryChange, onMarkLo
           <div className="card-name">{lead.name || "Sem nome"}</div>
           <div className="card-source">{lead.source}</div>
         </div>
+        {(lead.tags || []).length > 0 && (
+          <div className="card-tags">
+            {lead.tags.map((t) => (
+              <span key={t} className={`tag tag-${t.toLowerCase()}`}>{t}</span>
+            ))}
+          </div>
+        )}
       </div>
 
       {lead.phone.valid ? (

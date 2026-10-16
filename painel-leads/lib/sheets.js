@@ -1,4 +1,5 @@
-// Leitura (somente leitura) da planilha de leads no Google Sheets.
+// Leitura (somente leitura) da planilha de leads do META ADS no Google Sheets.
+// (A planilha de leads do Google/site fica em lib/sheetsGoogle.js.)
 // Usa uma conta de serviço do Google com acesso de VISUALIZAÇÃO à planilha.
 // Nada aqui grava ou altera a planilha — só lê.
 
@@ -7,7 +8,9 @@ import { google } from "googleapis";
 const SHEET_ID = process.env.LEADS_SHEET_ID;
 const SHEET_RANGE = process.env.LEADS_SHEET_RANGE || "A:R"; // colunas id..enviado
 
-function getAuth() {
+// Exportado para ser reaproveitado pela leitura da planilha de leads do
+// Google (lib/sheetsGoogle.js) — mesma conta de serviço, mesmas credenciais.
+export function getAuth() {
   let email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
   let key = process.env.GOOGLE_PRIVATE_KEY;
 

@@ -1,46 +1,103 @@
 import { NextResponse } from "next/server";
 import { fetchLeadsFromSheet } from "@/lib/sheets";
-import { extractProperty } from "@/lib/property";
+import { fetchGoogleLeadsFromSheet } from "@/lib/sheetsGoogle";
+import { extractProperty, extractGoogleProperty } from "@/lib/property";
 import { normalizePhone } from "@/lib/phone";
 import { getAllCardStates } from "@/lib/store";
 
 // Route Handlers não são cacheados por padrão nesta versão do Next —
-// então isso já busca a planilha a cada request, sem precisar de config extra.
+// então isso já busca as planilhas a cada request, sem precisar de config extra.
+
+// Duas fontes de leads:
+//   - Meta Ads  (planilha LEADS_SHEET_ID)        -> origin "meta"
+//   - Google    (planilha "Leads Google - ...")  -> origin "google", tag "Google"
+// As duas são lidas em paralelo; se uma falhar, a outra continua aparecendo
+// e o erro volta em `warnings`.
+
+function mapMetaLead(r) {
+  const property = extractProperty(r.adName, r.campaignName);
+  return {
+    id: r.id,
+    origin: "meta",
+    tags: [],
+    name: r.nome,
+    phone: normalizePhone(r.telefone),
+    property: property.label,
+    propertyUncertain: property.uncertain,
+    source: r.platform === "ig" ? "Meta Ads (Instagram)" : "Meta Ads (Facebook)",
+    formAnswers: {
+      porOnde: (r.respostaPorOnde || "").replace(/_/g, " "),
+      prazo: (r.respostaPrazo || "").replace(/_/g, " "),
+    },
+    message: "",
+    createdAt: r.createdTime,
+  };
+}
+
+function mapGoogleLead(r) {
+  const property = extractGoogleProperty(r);
+  return {
+    id: r.id,
+    origin: "google",
+    tags: ["Google"],
+    name: r.nome,
+    phone: normalizePhone(r.telefone),
+    property: property.label,
+    propertyUncertain: property.uncertain,
+    source: r.origem ? `Site · ${r.origem}` : "Site",
+    formAnswers: { porOnde: "", prazo: "" },
+    message: r.mensagem || "",
+    createdAt: r.createdTime,
+  };
+}
+
+function toTime(v) {
+  const t = Date.parse(v);
+  return Number.isNaN(t) ? 0 : t;
+}
 
 export async function GET() {
+  const [metaRes, googleRes] = await Promise.allSettled([
+    fetchLeadsFromSheet(),
+    fetchGoogleLeadsFromSheet(),
+  ]);
+
+  const warnings = [];
+  if (metaRes.status === "rejected") {
+    console.error("Erro ao buscar leads do Meta:", metaRes.reason);
+    warnings.push(`Planilha do Meta Ads: ${metaRes.reason?.message || "erro na leitura"}`);
+  }
+  if (googleRes.status === "rejected") {
+    console.error("Erro ao buscar leads do Google:", googleRes.reason);
+    warnings.push(`Planilha do Google: ${googleRes.reason?.message || "erro na leitura"}`);
+  }
+
+  if (metaRes.status === "rejected" && googleRes.status === "rejected") {
+    return NextResponse.json(
+      { error: warnings.join(" | ") || "Erro ao buscar leads das planilhas." },
+      { status: 500 }
+    );
+  }
+
   try {
-    const rawLeads = await fetchLeadsFromSheet();
+    const base = [
+      ...(metaRes.status === "fulfilled" ? metaRes.value.map(mapMetaLead) : []),
+      ...(googleRes.status === "fulfilled" ? googleRes.value.map(mapGoogleLead) : []),
+    ];
 
-    const leadIds = rawLeads.map((r) => r.id);
-    const states = await getAllCardStates(leadIds);
-
-    const leads = rawLeads.map((r) => {
-      const property = extractProperty(r.adName, r.campaignName);
-      const phone = normalizePhone(r.telefone);
-      const state = states[r.id];
-
-      return {
-        id: r.id,
-        name: r.nome,
-        phone,
-        property: property.label,
-        propertyUncertain: property.uncertain,
-        source: r.platform === "ig" ? "Meta Ads (Instagram)" : "Meta Ads (Facebook)",
-        formAnswers: {
-          porOnde: (r.respostaPorOnde || "").replace(/_/g, " "),
-          prazo: (r.respostaPrazo || "").replace(/_/g, " "),
-        },
-        createdAt: r.createdTime,
-        ...state,
-      };
-    });
+    const states = await getAllCardStates(base.map((l) => l.id));
+    const leads = base.map((l) => ({ ...l, ...states[l.id] }));
 
     // mais recentes primeiro
-    leads.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    leads.sort((a, b) => toTime(b.createdAt) - toTime(a.createdAt));
 
-    return NextResponse.json({ leads, fetchedAt: new Date().toISOString() });
+    return NextResponse.json({
+      leads,
+      warnings,
+      fetchedAt: new Date().toISOString(),
+    });
   } catch (err) {
-    console.error("Erro ao buscar leads:", err);
+    console.error("Erro ao montar leads:", err);
     return NextResponse.json(
       { error: err.message || "Erro ao buscar leads da planilha." },
       { status: 500 }

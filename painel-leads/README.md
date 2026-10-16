@@ -25,6 +25,21 @@ funciona.
    - `client_email` → `GOOGLE_SERVICE_ACCOUNT_EMAIL`
    - `private_key` → `GOOGLE_PRIVATE_KEY` (cole o valor inteiro, com as quebras `\n`)
 
+### 1b. Segunda fonte: planilha de leads do Google (site)
+
+Os leads que chegam pelos botões do site ficam na planilha
+**"Leads Google - Patrícia Toledo Corretora"** (aba `Leads`, colunas A:H).
+Eles aparecem no painel com a tag **Google**.
+
+- Compartilhe essa planilha com o **mesmo e-mail da conta de serviço** acima, como **Leitor**.
+- Variáveis opcionais (já têm valor padrão):
+  - `GOOGLE_LEADS_SHEET_ID` — padrão `1AATyI2Wf85RXSOYNhZfIMNag-u9w3NRxbV9enDgHpNk`
+  - `GOOGLE_LEADS_SHEET_RANGE` — padrão `Leads!A:H`
+- Como essa planilha não tem coluna de ID, o painel gera um ID a partir de
+  data/hora + telefone + origem + imóvel. Linhas idênticas repetidas viram um
+  lead só; linhas de teste (nome começando com "Teste") são ignoradas.
+- Se uma das duas planilhas falhar, a outra continua aparecendo e o painel mostra um aviso.
+
 ### 2. Banco de estado do Kanban (Upstash Redis)
 
 1. No painel do seu projeto na Vercel, vá em "Storage" → "Marketplace Database Storage" → escolha **Upstash Redis** (tem plano gratuito).
@@ -62,7 +77,8 @@ npm run dev     # sobe em http://localhost:3000
 
 ## Estrutura
 
-- `lib/sheets.js` — leitura (somente leitura) da planilha via Google Sheets API.
+- `lib/sheets.js` — leitura (somente leitura) da planilha do Meta Ads via Google Sheets API.
+- `lib/sheetsGoogle.js` — leitura (somente leitura) da planilha de leads do Google/site.
 - `lib/property.js` — identifica o empreendimento a partir do nome do anúncio (`ad_name`).
 - `lib/phone.js` — normaliza o número de WhatsApp pra gerar o link `wa.me`.
 - `lib/store.js` — guarda o estado do Kanban (coluna, tentativas, resumo, motivo de perda) no Upstash Redis — nunca na planilha.
