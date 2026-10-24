@@ -20,6 +20,11 @@ import { Redis } from "@upstash/redis";
 
 const NOTIFIED_SET = "notify:sent"; // contatos já avisados
 const SEEDED_KEY = (origin) => `notify:seeded:${origin}`; // 1ª execução por planilha
+const LAST_RUN_KEY = "notify:last"; // resumo da última rodada (pra diagnóstico)
+const LOCK_KEY = "notify:lock"; // evita duas rodadas ao mesmo tempo
+
+// Limite de tempo de cada rodada: o que não der tempo fica pra próxima.
+const RUN_BUDGET_MS = 40_000;
 
 let redis = null;
 function getRedis() {
@@ -164,6 +169,13 @@ function getTransport() {
       port: 465,
       secure: true,
       auth: { user, pass },
+      // uma conexão só, reaproveitada pra todos os e-mails da rodada
+      pool: true,
+      maxConnections: 1,
+      // nunca ficar travado esperando o Gmail
+      connectionTimeout: 10_000,
+      greetingTimeout: 10_000,
+      socketTimeout: 20_000,
     }),
   };
 }
@@ -207,8 +219,14 @@ export async function notifyNewLeads({ leads, loaded, panelUrl, maxEmails = 20 }
   const { user, transport } = getTransport();
   const batch = fresh.slice(0, maxEmails);
   result.pending = fresh.length - batch.length; // ficam pra próxima rodada
+  const startedAt = Date.now();
 
+  try {
   for (const ev of batch) {
+    if (Date.now() - startedAt > RUN_BUDGET_MS) {
+      result.pending += batch.length - (result.sent + result.failed);
+      break;
+    }
     // "reserva" o contato antes de enviar: se duas rodadas se sobrepõem,
     // só uma consegue (sadd devolve 0 pra quem chegou depois)
     const claimed = await db.sadd(NOTIFIED_SET, ev.key);
@@ -230,6 +248,40 @@ export async function notifyNewLeads({ leads, loaded, panelUrl, maxEmails = 20 }
       result.errors.push(err.message);
     }
   }
+  } finally {
+    transport.close();
+  }
 
   return result;
+}
+
+/**
+ * Roda uma rodada completa com trava (uma por vez) e grava o resumo em
+ * notify:last — é esse resumo que o link do aviso mostra.
+ */
+export async function runNotifyRound({ getLeads, panelUrl }) {
+  const db = getRedis();
+  const got = await db.set(LOCK_KEY, new Date().toISOString(), { nx: true, ex: 120 });
+  if (!got) return { skipped: "outra rodada ainda está em andamento" };
+
+  const started = Date.now();
+  let summary;
+  try {
+    const { leads, loaded, warnings } = await getLeads();
+    const r = await notifyNewLeads({ leads, loaded, panelUrl });
+    summary = { ok: r.failed === 0, ...r, warnings };
+  } catch (err) {
+    console.error("Erro no aviso de leads novos:", err);
+    summary = { ok: false, error: err.message };
+  } finally {
+    await db.del(LOCK_KEY);
+  }
+  summary = { ...summary, finishedAt: new Date().toISOString(), tookMs: Date.now() - started };
+  await db.set(LAST_RUN_KEY, summary);
+  if (summary.errors?.length || summary.error) console.error("Aviso de leads:", summary);
+  return summary;
+}
+
+export async function getLastRun() {
+  return (await getRedis().get(LAST_RUN_KEY)) || null;
 }
