@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, useCallback } from "react";
+import { PERIOD_FILTERS, periodRange, inRange } from "@/lib/dateRange";
 
 const COLUMNS = [
   { key: "novo", title: "Novos leads" },
@@ -53,17 +54,36 @@ export default function PainelPage() {
   const [savingId, setSavingId] = useState(null);
   const [mobileStage, setMobileStage] = useState("novo");
   const [platform, setPlatform] = useState("todas"); // todas | google | meta
+  const [period, setPeriod] = useState("todos"); // ver PERIOD_FILTERS
+  const [customRange, setCustomRange] = useState({ from: "", to: "" });
 
   // lembra o último filtro escolhido neste navegador
   useEffect(() => {
     try {
       const saved = localStorage.getItem("painel_platform");
       if (saved && PLATFORM_FILTERS.some((f) => f.key === saved)) setPlatform(saved);
+      const savedPeriod = localStorage.getItem("painel_period");
+      if (savedPeriod && PERIOD_FILTERS.some((f) => f.key === savedPeriod)) setPeriod(savedPeriod);
+      const savedRange = JSON.parse(localStorage.getItem("painel_period_range") || "null");
+      if (savedRange && typeof savedRange === "object") {
+        setCustomRange({ from: savedRange.from || "", to: savedRange.to || "" });
+      }
     } catch {}
   }, []);
   function choosePlatform(key) {
     setPlatform(key);
     try { localStorage.setItem("painel_platform", key); } catch {}
+  }
+  function choosePeriod(key) {
+    setPeriod(key);
+    try { localStorage.setItem("painel_period", key); } catch {}
+  }
+  function changeCustomRange(field, value) {
+    setCustomRange((prev) => {
+      const next = { ...prev, [field]: value };
+      try { localStorage.setItem("painel_period_range", JSON.stringify(next)); } catch {}
+      return next;
+    });
   }
 
   const load = useCallback(async () => {
@@ -114,19 +134,38 @@ export default function PainelPage() {
     patchCard(lead.id, { status: "perdido", lostReason: reason });
   }
 
-  // filtro por plataforma (tag): vale para Kanban, Perdidos e Funil
+  // filtro de data (pela data de chegada do lead, horário de Brasília) e
+  // filtro por plataforma (tag) — os dois juntos valem para Kanban, Perdidos e Funil
+  const range = useMemo(() => periodRange(period, customRange), [period, customRange]);
+
+  const leadsInPeriod = useMemo(
+    () => (leads || []).filter((l) => inRange(l.createdAt, range)),
+    [leads, range]
+  );
+
+  // quantos leads cada período teria, já respeitando a plataforma escolhida
+  const periodCounts = useMemo(() => {
+    const base = (leads || []).filter((l) => platform === "todas" || l.origin === platform);
+    const c = {};
+    for (const f of PERIOD_FILTERS) {
+      const r = f.key === period ? range : periodRange(f.key, customRange);
+      c[f.key] = f.key === "custom" && !r ? null : base.filter((l) => inRange(l.createdAt, r)).length;
+    }
+    return c;
+  }, [leads, platform, period, range, customRange]);
+
   const platformCounts = useMemo(() => {
     const c = { todas: 0, google: 0, meta: 0 };
-    (leads || []).forEach((l) => {
+    leadsInPeriod.forEach((l) => {
       c.todas += 1;
       if (c[l.origin] !== undefined) c[l.origin] += 1;
     });
     return c;
-  }, [leads]);
+  }, [leadsInPeriod]);
 
   const filteredLeads = useMemo(
-    () => (leads || []).filter((l) => platform === "todas" || l.origin === platform),
-    [leads, platform]
+    () => leadsInPeriod.filter((l) => platform === "todas" || l.origin === platform),
+    [leadsInPeriod, platform]
   );
 
   const activeLeads = useMemo(
@@ -206,6 +245,52 @@ export default function PainelPage() {
             {f.label} <span className="count">{platformCounts[f.key]}</span>
           </button>
         ))}
+      </div>
+
+      <div className="platform-filter period-filter" role="group" aria-label="Filtrar por período">
+        <span className="platform-filter-label">Período</span>
+        {PERIOD_FILTERS.map((f) => (
+          <button
+            key={f.key}
+            className={`platform-chip ${period === f.key ? "active" : ""}`}
+            aria-pressed={period === f.key}
+            onClick={() => choosePeriod(f.key)}
+          >
+            {f.label}
+            {periodCounts[f.key] !== null && <span className="count">{periodCounts[f.key]}</span>}
+          </button>
+        ))}
+        {period === "custom" && (
+          <div className="period-custom">
+            <label>
+              De
+              <input
+                type="date"
+                value={customRange.from}
+                max={customRange.to || undefined}
+                onChange={(e) => changeCustomRange("from", e.target.value)}
+              />
+            </label>
+            <label>
+              Até
+              <input
+                type="date"
+                value={customRange.to}
+                min={customRange.from || undefined}
+                onChange={(e) => changeCustomRange("to", e.target.value)}
+              />
+            </label>
+            {(customRange.from || customRange.to) && (
+              <button
+                type="button"
+                className="period-clear"
+                onClick={() => { changeCustomRange("from", ""); changeCustomRange("to", ""); }}
+              >
+                limpar
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       <nav className="tabs">

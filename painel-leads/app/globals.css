@@ -162,6 +162,13 @@ nav.tabs button.active .count { color: var(--accent-ink); background: var(--acce
 .platform-chip .count { font-family: var(--font-mono); font-size: 11.5px; opacity: 0.8; }
 .platform-chip:hover { border-color: var(--text-faint); }
 .platform-chip.active { color: var(--accent-ink); background: var(--accent-soft); border-color: var(--accent); font-weight: 600; }
+.period-filter { margin-top: -8px; }
+.period-custom { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-left: 4px; }
+.period-custom label { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-muted); }
+.period-custom input[type="date"] { font: inherit; font-size: 13px; padding: 5px 8px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text); color-scheme: light dark; }
+.period-custom input[type="date"]:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+.period-clear { font: inherit; font-size: 12.5px; background: none; border: none; color: var(--text-faint); cursor: pointer; text-decoration: underline; padding: 4px; }
+.period-clear:hover { color: var(--text-muted); }
 .platform-chip.chip-google.active { color: #1a5fd1; background: #e8f0fe; border-color: #1a5fd1; }
 .platform-chip.chip-meta.active { color: #6b3fc4; background: #f1ebfd; border-color: #6b3fc4; }
 @media (prefers-color-scheme: dark) {
