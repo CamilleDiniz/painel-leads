@@ -2,6 +2,9 @@
 @import "tailwindcss";
 
 :root {
+  --funnel-1: #a9d3c8;
+  --funnel-2: #5aa594;
+  --funnel-3: #2b6e62;
   --font-display: "Fraunces", Georgia, serif;
   --font-body: "Public Sans", system-ui, sans-serif;
   --font-mono: "IBM Plex Mono", "SFMono-Regular", monospace;
@@ -41,8 +44,12 @@
     --status-perdido: #e4837a;
     --status-perdido-soft: #3b211e;
     --shadow: rgba(0, 0, 0, 0.45);
+    --funnel-1: #2c5249;
+    --funnel-2: #3f8a79;
+    --funnel-3: #72c6b2;
   }
 }
+:root[data-theme="dark"] { --funnel-1: #2c5249; --funnel-2: #3f8a79; --funnel-3: #72c6b2; }
 
 * { box-sizing: border-box; }
 
@@ -259,4 +266,36 @@ tbody tr:hover { background: var(--surface-2); }
   .stat-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
   .stat-tile { padding: 14px; }
   .stat-tile .num { font-size: 26px; }
+}
+
+/* ---------- funil visual ---------- */
+.funnel-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 22px 24px 26px; margin-bottom: 18px; }
+.funnel-empty { color: var(--text-muted); font-size: 14px; }
+.funnel-hero { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding-bottom: 18px; margin-bottom: 20px; border-bottom: 1px solid var(--border); }
+.funnel-hero-label { font-size: 12.5px; color: var(--text-muted); }
+.funnel-hero-num { font-family: var(--font-display), serif; font-weight: 500; font-size: 40px; line-height: 1.1; margin-top: 4px; }
+.funnel-hero-note { margin: 0; font-size: 13px; color: var(--text-muted); }
+.funnel { display: flex; flex-direction: column; }
+.funnel-row { display: grid; grid-template-columns: 210px minmax(0, 1fr) 120px; align-items: center; gap: 18px; }
+.funnel-name { font-weight: 600; font-size: 14.5px; }
+.funnel-hint { font-size: 12px; color: var(--text-faint); margin-top: 2px; }
+.funnel-track { display: flex; justify-content: center; height: 54px; }
+.funnel-bar { height: 100%; border-radius: 6px; transition: width 0.35s ease; }
+.funnel-bar-novos { background: var(--funnel-1); }
+.funnel-bar-conversa { background: var(--funnel-2); }
+.funnel-bar-visita { background: var(--funnel-3); }
+.funnel-value { display: flex; flex-direction: column; align-items: flex-end; }
+.funnel-count { font-family: var(--font-display), serif; font-size: 26px; font-weight: 500; line-height: 1.1; }
+.funnel-pct { font-family: var(--font-mono), monospace; font-size: 12.5px; color: var(--text-muted); margin-top: 2px; }
+.funnel-step { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 0; font-size: 13px; color: var(--text-muted); margin-left: 228px; margin-right: 138px; }
+.funnel-step b { color: var(--text); font-family: var(--font-mono), monospace; font-size: 13.5px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 999px; padding: 2px 9px; }
+.funnel-step-arrow { color: var(--text-faint); }
+@media (max-width: 700px) {
+  .funnel-card { padding: 18px 16px 20px; }
+  .funnel-hero-num { font-size: 32px; }
+  .funnel-row { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "label value" "track track"; gap: 6px 12px; }
+  .funnel-label { grid-area: label; }
+  .funnel-value { grid-area: value; }
+  .funnel-track { grid-area: track; height: 40px; }
+  .funnel-step { margin: 0; flex-wrap: wrap; text-align: center; }
 }

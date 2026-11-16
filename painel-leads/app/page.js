@@ -185,17 +185,28 @@ export default function PainelPage() {
     return c;
   }, [activeLeads]);
 
+  // Funil comercial (respeita os filtros de período e plataforma):
+  //   Novos leads       = todos os leads que chegaram (inclusive os perdidos)
+  //   Conversa iniciada = Visita + Follow-up + Acompanhamento
+  //   Visita            = Visita agendada
   const funnel = useMemo(() => {
     const total = filteredLeads.length;
-    const iniciadas = activeLeads.length + lostLeads.length; // toda planilha = conversa iniciada
+    const visita = counts.visita;
+    const conversa = counts.visita + counts.followup + counts.acompanhamento;
+    const pct = (a, b) => (b > 0 ? (a / b) * 100 : null);
     return {
       total,
-      iniciadas,
+      conversa,
+      visita,
+      aguardando: counts.novo,
       followup: counts.followup,
       acompanhamento: counts.acompanhamento,
       perdidos: lostLeads.length,
+      pctConversa: pct(conversa, total), // novos -> conversa
+      pctVisitaDaConversa: pct(visita, conversa), // conversa -> visita
+      pctVisita: pct(visita, total), // novos -> visita
     };
-  }, [filteredLeads, activeLeads, lostLeads, counts]);
+  }, [filteredLeads, lostLeads, counts]);
 
   return (
     <div className="app">
@@ -423,11 +434,14 @@ export default function PainelPage() {
           <div className="view-head">
             <div>
               <h2>Funil comercial</h2>
-              <p>Métricas calculadas em tempo real a partir dos leads atuais da planilha.</p>
+              <p>Calculado em tempo real a partir dos leads das planilhas, respeitando os filtros de plataforma e período acima.</p>
             </div>
           </div>
+
+          <FunnelChart funnel={funnel} />
+
           <div className="stat-grid">
-            <div className="stat-tile"><div className="label">Conversas iniciadas</div><div className="num">{funnel.iniciadas}</div></div>
+            <div className="stat-tile"><div className="label">Aguardando 1º contato</div><div className="num">{funnel.aguardando}</div></div>
             <div className="stat-tile"><div className="label">Em follow-up</div><div className="num">{funnel.followup}</div></div>
             <div className="stat-tile"><div className="label">Em acompanhamento</div><div className="num">{funnel.acompanhamento}</div></div>
             <div className="stat-tile"><div className="label">Perdas</div><div className="num">{funnel.perdidos}</div></div>
@@ -463,6 +477,101 @@ export default function PainelPage() {
           </div>
         </section>
       )}
+    </div>
+  );
+}
+
+function formatPct(v) {
+  if (v === null || v === undefined) return "—";
+  const digits = v > 0 && v < 10 ? 1 : 0;
+  return `${v.toLocaleString("pt-BR", { minimumFractionDigits: digits, maximumFractionDigits: digits })}%`;
+}
+
+// Funil visual: 3 etapas centralizadas, largura proporcional ao total de
+// novos leads. Entre as etapas, a taxa de conversão de uma para a outra.
+function FunnelChart({ funnel }) {
+  const { total, conversa, visita } = funnel;
+  const stages = [
+    {
+      key: "novos",
+      label: "Novos leads",
+      hint: "Todos os leads que chegaram",
+      value: total,
+      pctOfTotal: total > 0 ? 100 : null,
+    },
+    {
+      key: "conversa",
+      label: "Conversa iniciada",
+      hint: "Visita + Follow-up + Acompanhamento",
+      value: conversa,
+      pctOfTotal: funnel.pctConversa,
+    },
+    {
+      key: "visita",
+      label: "Visita",
+      hint: "Visita agendada",
+      value: visita,
+      pctOfTotal: funnel.pctVisita,
+    },
+  ];
+  const steps = [
+    { from: "Novos leads", to: "conversa iniciada", pct: funnel.pctConversa },
+    { from: "Conversa iniciada", to: "visita", pct: funnel.pctVisitaDaConversa },
+  ];
+
+  if (total === 0) {
+    return (
+      <div className="funnel-card funnel-empty">
+        Nenhum lead nesse período/plataforma. Troque os filtros acima para ver o funil.
+      </div>
+    );
+  }
+
+  return (
+    <div className="funnel-card">
+      <div className="funnel-hero">
+        <div>
+          <div className="funnel-hero-label">Conversão total · novos leads → visita</div>
+          <div className="funnel-hero-num">{formatPct(funnel.pctVisita)}</div>
+        </div>
+        <p className="funnel-hero-note">
+          {visita} {visita === 1 ? "visita" : "visitas"} a partir de {total} {total === 1 ? "lead" : "leads"}
+        </p>
+      </div>
+
+      <div className="funnel" role="img" aria-label={`Funil: ${total} novos leads, ${conversa} conversas iniciadas (${formatPct(funnel.pctConversa)}), ${visita} visitas (${formatPct(funnel.pctVisita)} dos novos, ${formatPct(funnel.pctVisitaDaConversa)} das conversas).`}>
+        {stages.map((st, i) => {
+          const width = total > 0 ? Math.max((st.value / total) * 100, st.value > 0 ? 3 : 0) : 0;
+          return (
+            <div key={st.key}>
+              {i > 0 && (
+                <div className="funnel-step">
+                  <span className="funnel-step-arrow" aria-hidden="true">↓</span>
+                  <b>{formatPct(steps[i - 1].pct)}</b>
+                  <span>de {steps[i - 1].from.toLowerCase()} viraram {steps[i - 1].to}</span>
+                </div>
+              )}
+              <div className="funnel-row">
+                <div className="funnel-label">
+                  <div className="funnel-name">{st.label}</div>
+                  <div className="funnel-hint">{st.hint}</div>
+                </div>
+                <div className="funnel-track">
+                  <div
+                    className={`funnel-bar funnel-bar-${st.key}`}
+                    style={{ width: `${width}%` }}
+                    title={`${st.label}: ${st.value} (${formatPct(st.pctOfTotal)} dos novos leads)`}
+                  />
+                </div>
+                <div className="funnel-value">
+                  <span className="funnel-count">{st.value}</span>
+                  <span className="funnel-pct">{formatPct(st.pctOfTotal)}</span>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
