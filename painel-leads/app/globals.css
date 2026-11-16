@@ -299,3 +299,14 @@ tbody tr:hover { background: var(--surface-2); }
   .funnel-track { grid-area: track; height: 40px; }
   .funnel-step { margin: 0; flex-wrap: wrap; text-align: center; }
 }
+
+/* cards abaixo do funil: número + % no canto inferior direito */
+.stat-grid-5 { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.stat-tile .label-hint { color: var(--text-faint); }
+.stat-tile-bottom { display: flex; align-items: flex-end; justify-content: space-between; gap: 8px; }
+.stat-pct { font-family: var(--font-mono), monospace; font-size: 13px; color: var(--text-muted); background: var(--surface-2); border: 1px solid var(--border); border-radius: 999px; padding: 2px 9px; margin-bottom: 6px; white-space: nowrap; }
+@media (max-width: 1000px) { .stat-grid-5 { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 700px) {
+  .stat-grid-5 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .stat-grid-5 .stat-tile:first-child { grid-column: 1 / -1; }
+}

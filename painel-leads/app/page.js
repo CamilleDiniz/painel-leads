@@ -440,11 +440,27 @@ export default function PainelPage() {
 
           <FunnelChart funnel={funnel} />
 
-          <div className="stat-grid">
-            <div className="stat-tile"><div className="label">Aguardando 1º contato</div><div className="num">{funnel.aguardando}</div></div>
-            <div className="stat-tile"><div className="label">Em follow-up</div><div className="num">{funnel.followup}</div></div>
-            <div className="stat-tile"><div className="label">Em acompanhamento</div><div className="num">{funnel.acompanhamento}</div></div>
-            <div className="stat-tile"><div className="label">Perdas</div><div className="num">{funnel.perdidos}</div></div>
+          {/* onde está cada lead agora; % sobre o total de novos leads (somam 100%) */}
+          <div className="stat-grid stat-grid-5">
+            {[
+              { label: "Novos leads", hint: "aguardando 1º contato", value: funnel.aguardando, showPct: false },
+              { label: "Visita agendada", value: funnel.visita, showPct: true },
+              { label: "Em follow-up", value: funnel.followup, showPct: true },
+              { label: "Em acompanhamento", value: funnel.acompanhamento, showPct: true },
+              { label: "Perdas", value: funnel.perdidos, showPct: true },
+            ].map((t) => (
+              <div key={t.label} className="stat-tile" title={t.hint ? `${t.label}: ${t.hint}` : undefined}>
+                <div className="label">{t.label}</div>
+                <div className="stat-tile-bottom">
+                  <div className="num">{t.value}</div>
+                  {t.showPct && (
+                    <div className="stat-pct" title="Percentual sobre o total de novos leads do período/plataforma">
+                      {formatPct(funnel.total > 0 ? (t.value / funnel.total) * 100 : null)}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
           </div>
         </section>
       )}
