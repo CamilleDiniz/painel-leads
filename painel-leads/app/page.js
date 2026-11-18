@@ -440,19 +440,30 @@ export default function PainelPage() {
 
           <FunnelChart funnel={funnel} />
 
-          {/* onde está cada lead agora; % sobre o total de novos leads (somam 100%) */}
+          {/* Novos leads = total que chegou no período (igual ao topo do funil);
+              os demais mostram onde os leads estão agora, com % sobre esse total */}
           <div className="stat-grid stat-grid-5">
             {[
-              { label: "Novos leads", hint: "aguardando 1º contato", value: funnel.aguardando, showPct: false },
-              { label: "Visita agendada", value: funnel.visita, showPct: true },
+              {
+                label: "Novos leads",
+                value: funnel.total,
+                showPct: false,
+                tag: `${funnel.aguardando} sem tratativa`,
+              },
               { label: "Em follow-up", value: funnel.followup, showPct: true },
               { label: "Em acompanhamento", value: funnel.acompanhamento, showPct: true },
+              { label: "Visita agendada", value: funnel.visita, showPct: true },
               { label: "Perdas", value: funnel.perdidos, showPct: true },
             ].map((t) => (
-              <div key={t.label} className="stat-tile" title={t.hint ? `${t.label}: ${t.hint}` : undefined}>
+              <div key={t.label} className="stat-tile">
                 <div className="label">{t.label}</div>
                 <div className="stat-tile-bottom">
                   <div className="num">{t.value}</div>
+                  {t.tag && (
+                    <div className="stat-pct stat-tag-pending" title="Leads parados na coluna Novos leads, ainda sem tratativa">
+                      {t.tag}
+                    </div>
+                  )}
                   {t.showPct && (
                     <div className="stat-pct" title="Percentual sobre o total de novos leads do período/plataforma">
                       {formatPct(funnel.total > 0 ? (t.value / funnel.total) * 100 : null)}
